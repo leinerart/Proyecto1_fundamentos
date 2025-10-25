@@ -1,0 +1,31 @@
+import tkinter as tk
+
+
+class VentanaAcercaDe:
+    def __init__(self, root_padre):
+        # Destruir el menú principal
+        root_padre.destroy()
+
+        self.root = tk.Tk()
+        self.root.title("Acerca De")
+        self.root.geometry("400x300")
+        self.root.configure(bg='white')
+
+        # Botón para regresar al menú principal
+        tk.Button(self.root, text="Regresar al Menú",
+                  font=("Fixedsys", 14),
+                  command=self.volver_menu,
+                  width=18).pack(pady=20)
+
+        self.root.mainloop()
+
+    def volver_menu(self):
+        """Vuelve al menú principal"""
+        from pantalla_inicio import PantallaInicial
+        self.root.destroy()
+        nueva_raiz = tk.Tk()
+        PantallaInicial(nueva_raiz)
+        nueva_raiz.mainloop()
+
+def mostrar_ventana_acerca_de(root_padre):
+    VentanaAcercaDe(root_padre)
