@@ -1,0 +1,98 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter.constants import RIDGE
+from PIL import Image, ImageTk
+
+class PantallaInicial:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Juego de Penales")
+        self.root.geometry("1300x600")
+
+        self.cargar_imagenes()
+        self.mostrar_pantalla_inicio()
+
+    def cargar_imagenes(self):
+        """Carga las imágenes necesarias para la interfaz"""
+        try:
+            img_fondo = Image.open("fondoba.jpg")
+            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar imágenes: {e}")
+            self.root.destroy()
+
+    def limpiar_pantalla(self):
+        """Limpia todos los widgets de la pantalla"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def mostrar_pantalla_inicio(self):
+        """Muestra la pantalla inicial"""
+        self.limpiar_pantalla()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título del juego
+        tk.Label(self.root, text="Juego de Penales", font=("Fixedsys", 35),relief="ridge",bd=20,
+                 bg="white").pack(pady=50)
+
+        # Frame para los botones
+        btn_frame = tk.Frame(self.root, bg="blue", bd=10, relief=RIDGE)
+        btn_frame.place(x=475, y=200, width=350, height=350)
+
+        tk.Button(btn_frame, text="Iniciar Juego", font=("Fixedsys", 18),relief="ridge",bd=10,
+                  command=self.iniciar_juego, width=15).pack(pady=20)
+
+        tk.Button(btn_frame, text="Estadísticas", font=("Fixedsys", 18),relief="ridge",bd=10,
+                  command=self.mostrar_estadisticas, width=15).pack(pady=20)
+
+        tk.Button(btn_frame, text="Acerca de", font=("Fixedsys", 18),relief="ridge",bd=10,command=self.mostrar_acerca_de, width=15).pack(pady=20)
+
+    def iniciar_juego(self):
+        """Abre la ventana de configuración de equipos"""
+        try:
+            # Importar la clase de configuración
+            from configuracion import ConfiguracionApp
+
+            # Destruir la ventana actual
+            self.root.destroy()
+
+            # Crear nueva ventana principal para la configuración
+            nueva_raiz = tk.Tk()
+            nueva_raiz.title("Configuración de Equipos")
+            nueva_raiz.geometry("1200x600")
+
+            # Inicializar la app de configuración
+            app_config = ConfiguracionApp(nueva_raiz)
+
+            # Configurar eventos de teclado
+            nueva_raiz.bind('<Return>', app_config.presionar_enter)
+            nueva_raiz.bind('<Escape>', app_config.salir)
+
+            nueva_raiz.mainloop()
+
+        except ImportError as e:
+            messagebox.showerror("Error", f"No se pudo cargar el módulo de configuración: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al iniciar el juego: {e}")
+
+    def mostrar_estadisticas(self):
+        """Muestra la ventana de Estadísticas"""
+        try:
+            from pantalla_estadisticas import mostrar_ventana_estadisticas
+            mostrar_ventana_estadisticas(self.root)
+        except ImportError as e:
+            messagebox.showerror("Error", f"No se pudo cargar el módulo Estadísticas: {e}")
+
+    def mostrar_acerca_de(self):
+        """Muestra la ventana Acerca De"""
+        try:
+            from pantalla_about import mostrar_ventana_acerca_de
+            mostrar_ventana_acerca_de(self.root)
+        except ImportError as e:
+            messagebox.showerror("Error", f"No se pudo cargar el módulo Acerca De: {e}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PantallaInicial(root)
+    root.mainloop()
