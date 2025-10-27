@@ -1,0 +1,165 @@
+import pygame
+import os
+import random
+from ffpyplayer.player import MediaPlayer #Se utiliza para reproducir videos
+from pymediainfo import MediaInfo #Obtiene la información del video, como la duración
+from errno import ENOENT #verifica errores de importación
+
+#la clase principal que permitirá reproducir el video
+class Video:
+    def __init__(self, path):
+        if not os.path.exists(path):
+            raise FileNotFoundError(ENOENT, os.strerror(ENOENT), path)
+
+        self.path = path
+        self._video = MediaPlayer(path) #prepara el video para reproducirse
+
+        try:
+            #leerá el archivo de video y tomará la información además de guardar datos como el tamaño
+            media_info = MediaInfo.parse(path)
+            video_track = media_info.video_tracks[0]
+            self.original_size = (int(video_track.width), int(video_track.height))
+        except:
+            self.original_size = (800, 600)  # Tamaño por defecto
+
+        self.current_size = self.original_size #tamaño del video
+        self.active = True
+        self.frame_surf = pygame.Surface(self.original_size) #crea una superficie para dibujar los frames del video
+        self.frame_surf.fill("black") #mostrar una pantalla en negro para evitar ver posibles errores
+        self.finished = False #nos indica si el video ha terminado de reproducirse
+
+    def close(self):
+        self._video.close_player()
+
+    #le asigna el tamaño al video por medio de la tupla con el ancho y alto
+    def set_size(self, size: tuple):
+        self.current_size = size
+
+    def _get_frame(self):
+        """Obtiene el frame actual del video"""
+        frame, val = self._video.get_frame()#pide el siguiente frame y el estado para saber si ya terminó
+
+        #nos indica si el video ya terminó por medio de end of file
+        if val == 'eof':
+            self.active = False
+            self.finished = True
+            return None
+
+        #se encarga de retornar los frames
+        if frame is not None:
+            img, timestamp = frame
+            if img is not None:
+                return img
+        #si ya no hay frame no retorna nada
+        return None
+
+    #esta función se encargará de actualizar el frame actual del video
+    def update(self):
+        if not self.active or self.finished:
+            return False
+
+        frame_img = self._get_frame() #obtiene el siguiente frame
+
+        if frame_img is not None: #si el frame es válido
+            size = frame_img.get_size()
+            frame_data = frame_img.to_bytearray()[0]
+            frame_bytes = bytes(frame_data) #obtiene el frame en bytes para que pygame lo entienda
+
+            frame_surface = pygame.image.fromstring(frame_bytes, size, "RGB") #crea una superficie de pygame a partir de los datos
+
+            if size != self.current_size: #lo escala de ser necesario
+                frame_surface = pygame.transform.smoothscale(frame_surface, self.current_size)
+
+            self.frame_surf = frame_surface
+            return True #retorna el frame actual
+
+        return False
+
+    #esta funcion se encarga de dibujar el frame
+    def draw(self, surf: pygame.Surface, pos: tuple) -> bool:
+        """Dibuja el frame actual"""
+        if self.active and not self.finished:
+            surf.blit(self.frame_surf, pos)
+            return True
+        return False
+
+
+# PROGRAMA PRINCIPAL
+def lanzar_moneda(selecciones):
+    """Función que ejecuta la animación de la moneda y retorna quién empieza primero"""
+    pygame.init()
+
+    screen_width, screen_height = 800, 600
+    screen = pygame.display.set_mode((screen_width, screen_height))
+    pygame.display.set_caption("Lanzamiento de Moneda")
+
+    animaciones = ["cara.mp4", "cruz.mp4"]
+    animacion_seleccionada = random.choice(animaciones)
+
+    # Determinar resultado
+    if animacion_seleccionada == "cara.mp4":
+        mensaje = "El Jugador 1 empieza primero"
+        primer_jugador = 1
+    else:
+        mensaje = "El Jugador 2 empieza primero"
+        primer_jugador = 2
+
+    video = Video(animacion_seleccionada)
+    video.set_size((screen_width, screen_height))
+
+    clock = pygame.time.Clock()
+    running = True
+    animacion_terminada = False
+
+    font_grande = pygame.font.Font(None, 48)
+    font_mediana = pygame.font.Font(None, 36)
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN) and animacion_terminada:
+                running = False
+
+        if not animacion_terminada:
+            video.update()
+            if video.finished:
+                animacion_terminada = True
+
+        screen.fill((0, 0, 0))
+
+        if not animacion_terminada:
+            video.draw(screen, (0, 0))
+        else:
+            pygame.draw.rect(screen, (30, 30, 30), (100, 150, 600, 300), border_radius=20)
+            pygame.draw.rect(screen, (60, 60, 60), (100, 150, 600, 300), 4, border_radius=20)
+
+            titulo = font_grande.render("RESULTADO", True, "green")
+            screen.blit(titulo, (screen_width // 2 - titulo.get_width() // 2, 180))
+
+            texto_resultado = font_grande.render(mensaje, True, "blue" if primer_jugador == 1 else "red")
+            screen.blit(texto_resultado, (screen_width // 2 - texto_resultado.get_width() // 2, 280))
+
+            instruccion = font_mediana.render("Presiona cualquier tecla para continuar", True, "white")
+            screen.blit(instruccion, (screen_width // 2 - instruccion.get_width() // 2, 380))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    video.close()
+    pygame.quit()
+
+    import tkinter as tk
+    from pantalla_juego_principal import PantallaJuego
+
+    #creará la ventana del juego
+    root_juego = tk.Tk()
+    app_juego = PantallaJuego(root_juego, selecciones, primer_jugador)
+    root_juego.mainloop()
+
+    return primer_jugador
+
+
+if __name__ == "__main__":
+    resultado = lanzar_moneda()
+    print(f"Empieza primero: Jugador {resultado}")
