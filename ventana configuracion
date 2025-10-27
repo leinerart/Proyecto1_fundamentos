@@ -1,0 +1,624 @@
+import tkinter as tk
+from PIL import Image, ImageTk
+import socket
+import threading
+import time
+
+# Configuración del servidor
+SERVER_IP = "192.168.97.139"
+PORT = 1717
+
+class ConfiguracionApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Configuración de Equipos - CEFoot 4.1")
+        self.root.geometry("1200x600")
+        self.root.configure(bg='white')
+
+        # Variables de estado
+        self.current_pot_value = 0
+        self.selected_button = -1
+        self.connection_active = False
+        self.client_socket = None
+
+        # Variables para almacenar selecciones
+        self.equipo_jugador1 = None
+        self.artillero_jugador1 = None
+        self.portero_jugador1 = None
+        self.equipo_jugador2 = None
+        self.artillero_jugador2 = None
+        self.portero_jugador2 = None
+
+        # Estado actual del flujo
+        self.estado_actual = "jugador1_equipo"
+
+        # Lista para almacenar referencias de imágenes
+        self.imagenes = []
+
+        # Cargar imágenes reales
+        self.cargar_imagenes()
+
+        # Crear interfaz inicial
+        self.crear_interfaz_equipos()
+
+        # Conectar al servidor
+        self.conectar_servidor()
+
+    def cargar_imagenes(self):
+        """Cargar todas las imágenes de equipos, artilleros y porteros"""
+        try:
+            # Escudos de equipos
+            escudo1 = Image.open("escudo_argentina.png")
+            escudo1 = escudo1.resize((240, 240), Image.LANCZOS)
+            self.escudo1 = ImageTk.PhotoImage(escudo1)
+
+            escudo2 = Image.open("escudo_portugal.webp")
+            escudo2 = escudo2.resize((240, 240), Image.LANCZOS)
+            self.escudo2 = ImageTk.PhotoImage(escudo2)
+
+            escudo3 = Image.open("escudo_francia.webp")
+            escudo3 = escudo3.resize((240, 240), Image.LANCZOS)
+            self.escudo3 = ImageTk.PhotoImage(escudo3)
+
+            # Artilleros Argentina
+            artillero1arg = Image.open("messi.jpg")
+            artillero1arg = artillero1arg.resize((240, 240), Image.LANCZOS)
+            self.artillero1arg = ImageTk.PhotoImage(artillero1arg)
+
+            artillero2arg = Image.open("lautaro.webp")
+            artillero2arg = artillero2arg.resize((240, 240), Image.LANCZOS)
+            self.artillero2arg = ImageTk.PhotoImage(artillero2arg)
+
+            artillero3arg = Image.open("nicolas.webp")
+            artillero3arg = artillero3arg.resize((240, 240), Image.LANCZOS)
+            self.artillero3arg = ImageTk.PhotoImage(artillero3arg)
+
+            # Porteros Argentina
+            portero1arg = Image.open("otamendi.webp")
+            portero1arg = portero1arg.resize((240, 240), Image.LANCZOS)
+            self.portero1arg = ImageTk.PhotoImage(portero1arg)
+
+            portero2arg = Image.open("joaquin.webp")
+            portero2arg = portero2arg.resize((240, 240), Image.LANCZOS)
+            self.portero2arg = ImageTk.PhotoImage(portero2arg)
+
+            portero3arg = Image.open("julian.webp")
+            portero3arg = portero3arg.resize((240, 240), Image.LANCZOS)
+            self.portero3arg = ImageTk.PhotoImage(portero3arg)
+
+            # Artilleros Portugal
+            artillero1port = Image.open("cristiano.webp")
+            artillero1port = artillero1port.resize((240, 240), Image.LANCZOS)
+            self.artillero1port = ImageTk.PhotoImage(artillero1port)
+
+            artillero2port = Image.open("andre.webp")
+            artillero2port = artillero2port.resize((240, 240), Image.LANCZOS)
+            self.artillero2port = ImageTk.PhotoImage(artillero2port)
+
+            artillero3port = Image.open("renato.webp")
+            artillero3port = artillero3port.resize((240, 240), Image.LANCZOS)
+            self.artillero3port = ImageTk.PhotoImage(artillero3port)
+
+            # Porteros Portugal
+            portero1port = Image.open("rui.webp")
+            portero1port = portero1port.resize((240, 240), Image.LANCZOS)
+            self.portero1port = ImageTk.PhotoImage(portero1port)
+
+            portero2port = Image.open("jose.webp")
+            portero2port = portero2port.resize((240, 240), Image.LANCZOS)
+            self.portero2port = ImageTk.PhotoImage(portero2port)
+
+            portero3port = Image.open("bernardo.webp")
+            portero3port = portero3port.resize((240, 240), Image.LANCZOS)
+            self.portero3port = ImageTk.PhotoImage(portero3port)
+
+            # Artilleros Francia
+            artillero1fran = Image.open("antoine.webp")
+            artillero1fran = artillero1fran.resize((240, 240), Image.LANCZOS)
+            self.artillero1fran = ImageTk.PhotoImage(artillero1fran)
+
+            artillero2fran = Image.open("mbappe.webp")
+            artillero2fran = artillero2fran.resize((240, 240), Image.LANCZOS)
+            self.artillero2fran = ImageTk.PhotoImage(artillero2fran)
+
+            artillero3fran = Image.open("karim.webp")
+            artillero3fran = artillero3fran.resize((240, 240), Image.LANCZOS)
+            self.artillero3fran = ImageTk.PhotoImage(artillero3fran)
+
+            # Porteros Francia
+            portero1fran = Image.open("mike.webp")
+            portero1fran = portero1fran.resize((240, 240), Image.LANCZOS)
+            self.portero1fran = ImageTk.PhotoImage(portero1fran)
+
+            portero2fran = Image.open("adrien.webp")
+            portero2fran = portero2fran.resize((240, 240), Image.LANCZOS)
+            self.portero2fran = ImageTk.PhotoImage(portero2fran)
+
+            portero3fran = Image.open("christopher.webp")
+            portero3fran = portero3fran.resize((240, 240), Image.LANCZOS)
+            self.portero3fran = ImageTk.PhotoImage(portero3fran)
+
+            img_fondo = Image.open("fondo1.jpg")
+            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+
+            # Diccionarios organizados para fácil acceso
+            self.imagenes_equipos = {
+                "argentina": self.escudo1,
+                "portugal": self.escudo2,
+                "francia": self.escudo3
+            }
+
+            self.imagenes_artilleros = {
+                "argentina": [self.artillero1arg, self.artillero2arg, self.artillero3arg],
+                "portugal": [self.artillero1port, self.artillero2port, self.artillero3port],
+                "francia": [self.artillero1fran, self.artillero2fran, self.artillero3fran]
+            }
+
+            self.imagenes_porteros = {
+                "argentina": [self.portero1arg, self.portero2arg, self.portero3arg],
+                "portugal": [self.portero1port, self.portero2port, self.portero3port],
+                "francia": [self.portero1fran, self.portero2fran, self.portero3fran]
+            }
+
+            # Guardar todas las referencias en caso de ser eliminadas por el recolector de basura
+            self.imagenes.extend([
+                self.escudo1, self.escudo2, self.escudo3,
+                self.artillero1arg, self.artillero2arg, self.artillero3arg,
+                self.portero1arg, self.portero2arg, self.portero3arg,
+                self.artillero1port, self.artillero2port, self.artillero3port,
+                self.portero1port, self.portero2port, self.portero3port,
+                self.artillero1fran, self.artillero2fran, self.artillero3fran,
+                self.portero1fran, self.portero2fran, self.portero3fran
+            ])
+
+        except Exception as e:
+            print(f"Error cargando imágenes: {e}")
+
+    def crear_interfaz_equipos(self):
+        """Crear interfaz para selección según el estado actual"""
+        self.limpiar_interfaz()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título según el estado
+        titulos = {
+            "jugador1_equipo": "JUGADOR 1 - Selecciona tu equipo",
+            "jugador1_artillero": "JUGADOR 1 - Selecciona tu artillero",
+            "jugador1_portero": "JUGADOR 1 - Selecciona tu portero",
+            "jugador2_equipo": "JUGADOR 2 - Selecciona tu equipo",
+            "jugador2_artillero": "JUGADOR 2 - Selecciona tu artillero",
+            "jugador2_portero": "JUGADOR 2 - Selecciona tu portero"
+        }
+
+        self.title_label = tk.Label(
+            self.root,
+            text=titulos[self.estado_actual],
+            font=("Arial", 24, "bold"),
+            bg='white'
+        )
+        self.title_label.place(x=600, y=30, anchor="center")
+
+        # Crear botones según el estado
+        if "equipo" in self.estado_actual:
+            self.crear_botones_equipos()
+        elif "artillero" in self.estado_actual:
+            self.crear_botones_artilleros()
+        elif "portero" in self.estado_actual:
+            self.crear_botones_porteros()
+
+    def crear_botones_equipos(self):
+        """Crear botones para selección de equipos"""
+        equipos = ["argentina", "portugal", "francia"]
+        nombres_equipos = ["ARGENTINA", "PORTUGAL", "FRANCIA"]
+        #bucle que se encarga de crear los botones de equipos y posicionarlos
+        for i, (equipo, nombre) in enumerate(zip(equipos, nombres_equipos)):
+            boton = tk.Label(
+                self.root,
+                image=self.imagenes_equipos[equipo],
+                borderwidth=8,
+                relief="ridge",
+                bg="gray"
+            )
+            boton.place(x=50 + i * 400, y=150, width=300, height=300)
+
+            # Guardar referencia a los botones
+            if i == 0:
+                self.boton1 = boton
+            elif i == 1:
+                self.boton2 = boton
+            else:
+                self.boton3 = boton
+
+            # Etiqueta del equipo
+            label = tk.Label(self.root, text=nombre, font=("Arial", 16), bg='white')
+            label.place(x=200 + i * 400, y=460, anchor="center")
+
+    def crear_botones_artilleros(self):
+        """Crear botones para selección de artilleros"""
+        # Determinar qué equipo está seleccionado
+        if "jugador1" in self.estado_actual:
+            equipo_key = list(self.imagenes_equipos.keys())[self.equipo_jugador1]
+        else:
+            equipo_key = list(self.imagenes_equipos.keys())[self.equipo_jugador2]
+
+        nombres_artilleros = ["ARTILLERO 1", "ARTILLERO 2", "ARTILLERO 3"]
+        imagenes_artilleros = self.imagenes_artilleros[equipo_key]
+
+        #bucle que se encarga de crear los botones de artilleros y posicionarlos
+        for i in range(3):
+            boton = tk.Label(
+                self.root,
+                image=imagenes_artilleros[i],
+                borderwidth=8,
+                relief="ridge",
+                bg="gray"
+            )
+            boton.place(x=50 + i * 400, y=150, width=300, height=300)
+
+            # Guardar referencia a los botones
+            if i == 0:
+                self.boton1 = boton
+            elif i == 1:
+                self.boton2 = boton
+            else:
+                self.boton3 = boton
+
+            # Etiqueta del artillero
+            label = tk.Label(self.root, text=nombres_artilleros[i], font=("Arial", 16), bg='white')
+            label.place(x=200 + i * 400, y=460, anchor="center")
+
+    def crear_botones_porteros(self):
+        """Crear botones para selección de porteros"""
+        # Determinar qué equipo está seleccionando
+        if "jugador1" in self.estado_actual:
+            equipo_key = list(self.imagenes_equipos.keys())[self.equipo_jugador1]
+        else:
+            equipo_key = list(self.imagenes_equipos.keys())[self.equipo_jugador2]
+
+        nombres_porteros = ["PORTERO 1", "PORTERO 2", "PORTERO 3"]
+        imagenes_porteros = self.imagenes_porteros[equipo_key]
+
+        #bucle que se encarga de crear los botones de los porteros y posicionarlos
+        for i in range(3):
+            boton = tk.Label(
+                self.root,
+                image=imagenes_porteros[i],
+                borderwidth=8,
+                relief="ridge",
+                bg="gray"
+            )
+            boton.place(x=50 + i * 400, y=150, width=300, height=300)
+
+            # Guardar referencia a los botones
+            if i == 0:
+                self.boton1 = boton
+            elif i == 1:
+                self.boton2 = boton
+            else:
+                self.boton3 = boton
+
+            # Etiqueta del portero
+            label = tk.Label(self.root, text=nombres_porteros[i], font=("Arial", 16), bg='white')
+            label.place(x=200 + i * 400, y=460, anchor="center")
+
+    def limpiar_interfaz(self):
+        """Limpiar todos los widgets de la interfaz"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def conectar_servidor(self):
+        """Conectar al servidor de la Raspberry"""
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((SERVER_IP, PORT))
+            self.connection_active = True
+
+            # Iniciar hilo para recibir mensajes
+            threading.Thread(target=self.recibir_mensajes, daemon=True).start()
+
+        except Exception as e:
+            print(f"Error conectando al servidor: {e}")
+            self.connection_active = False
+
+    def recibir_mensajes(self):
+        """Recibir mensajes del servidor en un hilo separado"""
+        while self.connection_active:
+            try:
+                data = self.client_socket.recv(1024).decode()
+                if data:
+                    self.procesar_mensaje(data)
+            except Exception as e:
+                if self.connection_active:
+                    print(f"Error en conexión: {e}")
+                break
+
+    def procesar_mensaje(self, mensaje):
+        """Procesar los mensajes recibidos del servidor"""
+        if mensaje.startswith("BUTTON:"):
+            partes = mensaje.split(":")
+            if len(partes) >= 3:
+                boton_num = int(partes[1])
+                pot_val = int(partes[2])
+
+                # Actualizar interfaz en el hilo principal
+                self.root.after(0, self.actualizar_seleccion, boton_num, pot_val)
+
+    def actualizar_seleccion(self, boton_num, pot_val):
+        """Actualizar la selección del botón en la interfaz"""
+        self.selected_button = boton_num
+
+        # Actualizar colores de los bordes
+        self.boton1.config(bg="gray")
+        self.boton2.config(bg="gray")
+        self.boton3.config(bg="gray")
+
+        # Resaltar borde del botón seleccionado
+        if boton_num == 0:
+            self.boton1.config(bg="blue")
+        elif boton_num == 1:
+            self.boton2.config(bg="blue")
+        elif boton_num == 2:
+            self.boton3.config(bg="blue")
+
+    def presionar_enter(self, event=None):
+        """Procesar la tecla ENTER - confirmar selección"""
+        if self.connection_active and self.selected_button >= 0:
+            try:
+                # Guardar la selección según el estado actual
+                self.guardar_seleccion()
+
+                # Avanzar al siguiente estado
+                hay_mas_estados = self.avanzar_estado()
+
+                # Solo actualizar la interfaz si hay más estados
+                if hay_mas_estados:
+                    self.crear_interfaz_equipos()
+
+            except Exception as e:
+                print(f"Error procesando selección: {e}")
+
+    #funcion que se encarga de guardar que artillero, portero y equipo seleccionó cada jugador
+    def guardar_seleccion(self):
+        """Guardar la selección actual según el estado"""
+        if self.estado_actual == "jugador1_equipo":
+            self.equipo_jugador1 = self.selected_button  
+            print(f"Jugador 1 seleccionó equipo: {self.get_nombre_equipo(self.selected_button)}")
+
+        elif self.estado_actual == "jugador1_artillero":
+            self.artillero_jugador1 = self.selected_button
+            print(f"Jugador 1 seleccionó artillero: {self.selected_button + 1}")
+
+        elif self.estado_actual == "jugador1_portero":
+            self.portero_jugador1 = self.selected_button  
+            print(f"Jugador 1 seleccionó portero: {self.selected_button + 1}")
+
+        elif self.estado_actual == "jugador2_equipo":
+            self.equipo_jugador2 = self.selected_button
+            print(f"Jugador 2 seleccionó equipo: {self.get_nombre_equipo(self.selected_button)}")
+
+        elif self.estado_actual == "jugador2_artillero":
+            self.artillero_jugador2 = self.selected_button
+            print(f"Jugador 2 seleccionó artillero: {self.selected_button + 1}")
+
+        elif self.estado_actual == "jugador2_portero":
+            self.portero_jugador2 = self.selected_button
+            print(f"Jugador 2 seleccionó portero: {self.selected_button + 1}")
+
+    def get_nombre_equipo(self, indice):
+        """Obtener el nombre del equipo basado en el índice"""
+        equipos = ["Argentina", "Portugal", "Francia"]
+        return equipos[indice] if 0 <= indice < len(equipos) else "Desconocido"
+
+    #función que se encarga del flujo de selección
+    def avanzar_estado(self):
+        """Avanzar al siguiente estado del flujo"""
+        estados = [
+            "jugador1_equipo", "jugador1_artillero", "jugador1_portero",
+            "jugador2_equipo", "jugador2_artillero", "jugador2_portero"
+        ]
+        current_index = estados.index(self.estado_actual)
+        print(f"Estado actual: {self.estado_actual}, Índice: {current_index}")
+        if current_index < len(estados) - 1:
+            self.estado_actual = estados[current_index + 1]
+            print(f"Avanzando a: {self.estado_actual}")
+            return True
+        else:
+            self.estado_actual = "finalizado"  #estado para indicar que terminó
+            self.mostrar_pantalla_final()
+            return False  # Indica que se llegó al final
+
+#Función que muestra todos los datos según las elecciones de los jugadores
+    def mostrar_pantalla_final(self):
+        """Mostrar pantalla con las selecciones de ambos jugadores"""
+        self.limpiar_interfaz()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título
+        titulo = tk.Label(
+            self.root,
+            text="CONFIGURACIÓN COMPLETADA",
+            font=("Arial", 28, "bold"),
+            bg='white'
+        )
+        titulo.place(x=600, y=50, anchor="center")
+
+        # Jugador 1
+        jugador1_label = tk.Label(
+            self.root,
+            text="JUGADOR 1",
+            font=("Arial", 20, "bold"),
+            bg='white'
+        )
+        jugador1_label.place(x=300, y=120, anchor="center")
+
+        # Equipo jugador 1
+        equipo1_img = tk.Label(
+            self.root,
+            image=self.imagenes_equipos[list(self.imagenes_equipos.keys())[self.equipo_jugador1]],
+            borderwidth=4,
+            relief="solid",
+            bg="lightblue"
+        )
+        equipo1_img.place(x=10, y=180, width=190, height=190)
+
+        equipo1_text = tk.Label(
+            self.root,
+            text="EQUIPO",
+            font=("Arial", 14),
+            bg='white'
+        )
+        equipo1_text.place(x=50, y=160, anchor="center")
+
+        # Artillero jugador 1
+        artillero1_img = tk.Label(
+            self.root,
+            image=self.imagenes_artilleros[list(self.imagenes_equipos.keys())[self.equipo_jugador1]][
+                self.artillero_jugador1],
+            borderwidth=4,
+            relief="ridge",
+            bg="lightgreen"
+        )
+        artillero1_img.place(x=200, y=180, width=190, height=190)
+
+        artillero1_text = tk.Label(
+            self.root,
+            text="ARTILLERO",
+            font=("Arial", 12),
+            bg='white'
+        )
+        artillero1_text.place(x=250, y=160, anchor="center")
+
+        # Portero jugador 1
+        portero1_img = tk.Label(
+            self.root,
+            image=self.imagenes_porteros[list(self.imagenes_equipos.keys())[self.equipo_jugador1]][
+                self.portero_jugador1],
+            borderwidth=4,
+            relief="ridge",
+            bg="lightcoral"
+        )
+        portero1_img.place(x=390, y=180, width=190, height=190)
+
+        portero1_text = tk.Label(
+            self.root,
+            text="PORTERO",
+            font=("Arial", 12),
+            bg='white'
+        )
+        portero1_text.place(x=430, y=160, anchor="center")
+
+        # Jugador 2
+        jugador2_label = tk.Label(
+            self.root,
+            text="JUGADOR 2",
+            font=("Arial", 20, "bold"),
+            bg='white'
+        )
+        jugador2_label.place(x=910, y=120, anchor="center")
+
+        # Equipo jugador 2
+        equipo2_img = tk.Label(
+            self.root,
+            image=self.imagenes_equipos[list(self.imagenes_equipos.keys())[self.equipo_jugador2]],
+            borderwidth=4,
+            relief="solid",
+            bg="lightblue"
+        )
+        equipo2_img.place(x=620, y=180, width=190, height=190)
+
+        equipo2_text = tk.Label(
+            self.root,
+            text="EQUIPO",
+            font=("Arial", 14),
+            bg='white'
+        )
+        equipo2_text.place(x=660, y=160, anchor="center")
+
+        # Artillero jugador 2
+        artillero2_img = tk.Label(
+            self.root,
+            image=self.imagenes_artilleros[list(self.imagenes_equipos.keys())[self.equipo_jugador2]][
+                self.artillero_jugador2],
+            borderwidth=4,
+            relief="ridge",
+            bg="lightgreen"
+        )
+        artillero2_img.place(x=810, y=180, width=190, height=190)
+
+        artillero2_text = tk.Label(
+            self.root,
+            text="ARTILLERO",
+            font=("Arial", 12),
+            bg='white'
+        )
+        artillero2_text.place(x=860, y=160, anchor="center")
+
+        # Portero jugador 2
+        portero2_img = tk.Label(
+            self.root,
+            image=self.imagenes_porteros[list(self.imagenes_equipos.keys())[self.equipo_jugador2]][
+                self.portero_jugador2],
+            borderwidth=4,
+            relief="ridge",
+            bg="lightcoral"
+        )
+        portero2_img.place(x=1000, y=180, width=190, height=190)
+
+        portero2_text = tk.Label(
+            self.root,
+            text="PORTERO",
+            font=("Arial", 12),
+            bg='white'
+        )
+        portero2_text.place(x=1040, y=160, anchor="center")
+
+        # Botón para continuar
+        continuar_btn = tk.Button(
+            self.root,
+            text="INICIAR JUEGO",
+            font=("Arial", 16, "bold"),
+            bg="green",
+            fg="white",
+            command=self.iniciar_juego
+        )
+        continuar_btn.place(x=600, y=500, anchor="center", width=200, height=50)
+
+    def iniciar_juego(self):
+        """Función para iniciar el juego después de la configuración"""
+        print("Iniciando juego...")
+
+        # Guardar las selecciones
+        selecciones = {
+            'equipo_jugador1': self.equipo_jugador1,
+            'artillero_jugador1': self.artillero_jugador1,
+            'portero_jugador1': self.portero_jugador1,
+            'equipo_jugador2': self.equipo_jugador2,
+            'artillero_jugador2': self.artillero_jugador2,
+            'portero_jugador2': self.portero_jugador2
+        }
+
+        self.root.destroy()
+        #a continuación carga la animación de la moneda
+        try:
+            from moneda import lanzar_moneda
+            lanzar_moneda(selecciones)
+        except Exception as e:
+            print(f"Error: {e}")
+
+    def salir(self, event=None):
+        """Salir de la aplicación"""
+        if self.client_socket:
+            self.client_socket.close()
+        self.root.quit()
+
+# Crear y ejecutar la aplicación
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ConfiguracionApp(root)
+
+    # Configurar eventos de teclado
+    root.bind('<Return>', app.presionar_enter)
+    root.bind('<Escape>', app.salir)
+
+    root.mainloop()
