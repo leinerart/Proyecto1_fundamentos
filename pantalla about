@@ -1,23 +1,57 @@
 import tkinter as tk
+from tkinter import messagebox
+from tkinter.constants import RIDGE
+from PIL import Image, ImageTk
 
 
 class VentanaAcercaDe:
     def __init__(self, root_padre):
-        # Destruir el menú principal
-        root_padre.destroy()
+        # Destruir el menú principal si existe
+        if root_padre:
+            root_padre.destroy()
 
+        # Crear nueva ventana principal para About
         self.root = tk.Tk()
-        self.root.title("Acerca De")
-        self.root.geometry("400x300")
-        self.root.configure(bg='white')
+        self.root.title("About")
+        self.root.geometry("1300x600")
+
+        self.cargar_imagenes()
+        self.mostrar_pantalla_about()
+        self.root.mainloop()
+
+    def cargar_imagenes(self):
+        """Carga las imágenes necesarias para la interfaz"""
+        try:
+            img_fondo = Image.open("fondoba.jpg")
+            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar imágenes: {e}")
+            self.root.destroy()
+
+    def limpiar_pantalla(self):
+        """Limpia todos los widgets de la pantalla"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def mostrar_pantalla_about(self):
+        """Muestra la pantalla de about"""
+        self.limpiar_pantalla()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título
+        tk.Label(self.root, text="About", font=("Fixedsys", 35), relief="ridge", bd=20,
+                 bg="white").pack(pady=50)
+
+        # Frame principal para el contenido
+        contenido_frame = tk.Frame(self.root, bg="blue", bd=10, relief=RIDGE)
+        contenido_frame.place(x=200, y=150, width=900, height=400)
 
         # Botón para regresar al menú principal
         tk.Button(self.root, text="Regresar al Menú",
-                  font=("Fixedsys", 14),
+                  font=("Fixedsys", 15), relief="ridge", bd=10,
                   command=self.volver_menu,
-                  width=18).pack(pady=20)
-
-        self.root.mainloop()
+                  width=16).place(x=0,y=0)
 
     def volver_menu(self):
         """Vuelve al menú principal"""
@@ -27,5 +61,6 @@ class VentanaAcercaDe:
         PantallaInicial(nueva_raiz)
         nueva_raiz.mainloop()
 
-def mostrar_ventana_acerca_de(root_padre):
-    VentanaAcercaDe(root_padre)
+
+if __name__ == "__main__":
+    VentanaAcercaDe(None)
