@@ -1,0 +1,178 @@
+import socket
+import time
+import random
+from machine import Pin
+import network
+import _thread
+
+# LEDs de las paletas (celebración)
+leds_celebracion = {
+    16: Pin(16, Pin.OUT),
+    17: Pin(17, Pin.OUT),
+    18: Pin(18, Pin.OUT),
+    19: Pin(19, Pin.OUT),
+    20: Pin(20, Pin.OUT),
+    21: Pin(21, Pin.OUT)
+}
+
+# leds de equipo 
+led_equipo1 = Pin(22, Pin.OUT)
+led_equipo2 = Pin(27, Pin.OUT)
+
+def apagar_leds_celebracion():
+    """Apagar solo los leds de celebración"""
+    for led in leds_celebracion.values():
+        led.off()
+
+def apagar_todos_leds():
+    """Apagar todos los leds (incluyendo equipos)"""
+    for led in leds_celebracion.values():
+        led.off()
+    led_equipo1.off()
+    led_equipo2.off()
+
+def leds_gol():
+    """Efecto de leds para gol"""
+    for led in leds_celebracion.values():
+        led.on()
+    _thread.start_new_thread(apagar_leds_despues_delay, ()) #utilizado para ejecutar multiples tareas, pero en este caso para que los sonidos y las leds estén sincronizadas
+    
+
+def leds_atajado():
+    """Efecto de leds para atajada """
+    leds_celebracion[16].on()
+    leds_celebracion[21].on()
+    _thread.start_new_thread(apagar_leds_despues_delay, ())
+    
+def apagar_leds_despues_delay():
+    time.sleep(4)
+    apagar_leds_celebracion()
+      
+
+def encender_led_equipo(equipo):
+    """Enciende el led del equipo que está jugando"""
+    # Apagar ambos LEDs primero
+    led_equipo1.off()
+    led_equipo2.off()
+    
+    # Encender el LED del equipo correspondiente
+    if equipo == 1:
+        led_equipo1.on()
+        print("led equipo 1 ENCENDIDO")
+    elif equipo == 2:
+        led_equipo2.on()
+        print("led equipo 2 ENCENDIDO")
+
+# Pines de las paletas
+pines = {
+    7: Pin(7, Pin.IN, Pin.PULL_DOWN),
+    8: Pin(8, Pin.IN, Pin.PULL_DOWN),
+    9: Pin(9, Pin.IN, Pin.PULL_DOWN),
+    10: Pin(10, Pin.IN, Pin.PULL_DOWN),
+    11: Pin(11, Pin.IN, Pin.PULL_DOWN),
+    12: Pin(12, Pin.IN, Pin.PULL_DOWN)
+}
+
+# Grupos del portero según algoritmos AN
+GRUPOS_AN1 = [[7, 8], [9, 10], [11, 12]]  # 2 paletas contiguas
+GRUPOS_AN2 = [[7, 8, 9], [10, 11, 12]]    # 3 paletas contiguas  
+GRUPOS_AN3 = [[7, 9, 11], [8, 10, 12]]    # 3 paletas alternas
+
+def seleccionar_grupo_portero(algoritmo):
+    if algoritmo == 1:
+        return random.choice(GRUPOS_AN1)
+    elif algoritmo == 2:
+        return random.choice(GRUPOS_AN2)
+    elif algoritmo == 3:
+        return random.choice(GRUPOS_AN3)
+    else:
+        return random.choice(GRUPOS_AN1)  # Por defecto
+
+def verificar_conexion(paletas_portero):
+    for pin_num, pin_obj in pines.items():
+        if pin_obj.value() == 1:
+            if pin_num in paletas_portero:
+                return "atajado"
+            else:
+                return "gol"
+    return "sin_conexion"
+
+# === Servidor TCP ===
+wlan = network.WLAN(network.STA_IF)
+while not wlan.isconnected():
+    print("Esperando conexión WiFi...")
+    time.sleep(0.5)
+
+ip = wlan.ifconfig()[0]
+print("Servidor Paletas listo en IP:", ip)
+
+s = socket.socket()
+s.bind((ip, 1717))
+s.listen(1)
+print("Esperando conexión del cliente...")
+
+conn, addr = s.accept()
+print("Cliente conectado desde:", addr)
+
+try:
+    apagar_todos_leds()  # Apagar todos al inicio
+    while True:
+        data = conn.recv(1024)
+        if not data:
+            continue
+
+        msg = data.decode().strip()
+        print("Comando recibido:", msg)
+
+        if msg.startswith("INICIO_TIRO"):
+            # Obtener el algoritmo del portero y el equipo que juega
+            partes = msg.split(":")
+            algoritmo = int(partes[1]) if len(partes) > 1 else 1
+            equipo_jugando = int(partes[2]) if len(partes) > 2 else 1
+            
+            # Encender led del equipo que está jugando
+            encender_led_equipo(equipo_jugando)
+            
+            grupo = seleccionar_grupo_portero(algoritmo)
+            print(f"Portero cubre (AN{algoritmo}): {grupo}")
+            
+            resultado = "sin_conexion"
+            inicio = time.time()
+
+            while resultado == "sin_conexion":
+                resultado = verificar_conexion(grupo)
+                if time.time() - inicio > 10:
+                    resultado = "fallado"
+                    break
+                time.sleep(0.1)
+
+            if resultado == "gol":
+                print("¡GOOOL!")
+                conn.send("TIRO_RESULTADO:gol".encode())  
+                leds_gol()  
+            elif resultado == "atajado":
+                print("¡ATAJADO!")
+                conn.send("TIRO_RESULTADO:atajado".encode())  
+                leds_atajado()  
+            else:
+                print("FALLÓ el tiro o se acabó el tiempo.")
+                conn.send("TIRO_RESULTADO:fallado".encode())
+
+        elif msg == "FIN_JUEGO":
+            print("Apagando todos los LEDs - Juego terminado")
+            apagar_todos_leds()
+            
+        elif msg == "EXIT":
+            print("Finalizando juego por comando remoto.")
+            apagar_todos_leds()
+            break
+
+        time.sleep(0.1)
+
+except Exception as e:
+    print("Error:", e)
+finally:
+    apagar_todos_leds()
+    conn.close()
+    s.close()
+    print("Servidor detenido.")
