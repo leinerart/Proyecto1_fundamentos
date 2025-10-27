@@ -1,0 +1,74 @@
+import socket
+import time
+from machine import Pin, ADC
+import network
+
+# Configuración del potenciómetro
+pot = ADC(26)  # Conectado al pin GP26 (ADC0)
+
+# Conexión WiFi (ya configurada en boot.py)
+wlan = network.WLAN(network.STA_IF)
+while not wlan.isconnected():
+    print("Esperando conexión WiFi...")
+    time.sleep(0.5)
+
+ip = wlan.ifconfig()[0]
+print("Servidor Potenciómetro listo en IP:", ip)
+
+# Servidor TCP
+s = socket.socket()
+s.bind((ip, 1717))
+s.listen(1)
+print("Esperando conexión del cliente...")
+
+conn, addr = s.accept()
+print("Cliente conectado desde:", addr)
+
+def read_pot():
+    """Lee el valor del potenciómetro y lo normaliza a 0-100"""
+    value = pot.read_u16()
+    normalized = int((value / 65535) * 100)
+    return normalized
+
+def get_selected_button(pot_value):
+    """Determina el botón según el valor del potenciómetro"""
+    if pot_value < 33:
+        return 0
+    elif pot_value < 77:
+        return 1
+    else:
+        return 2
+
+try:
+    last_button = -1
+    while True:
+        pot_value = read_pot()
+        current_button = get_selected_button(pot_value)
+
+        if current_button != last_button:
+            message = f"BUTTON:{current_button}:{pot_value}"
+            conn.send(message.encode())
+            print("Enviado:", message)
+            last_button = current_button
+
+        # Revisión rápida de mensajes del cliente
+        conn.setblocking(False)
+        try:
+            data = conn.recv(1024)
+            if data:
+                msg = data.decode().strip()
+                print("Comando recibido:", msg)
+        except:
+            pass
+        conn.setblocking(True)
+
+        time.sleep(0.1)
+
+except KeyboardInterrupt:
+    print("Servidor detenido manualmente.")
+except Exception as e:
+    print("Error:", e)
+finally:
+    conn.close()
+    s.close()
+    print("Socket cerrado.")
