@@ -1,0 +1,18 @@
+import network
+import time
+import webrepl
+
+SSID = "prueba"
+PASSWORD = "mkes1351"
+
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+if not wlan.isconnected():
+    wlan.connect(SSID, PASSWORD)
+    print("Conectando al WiFi...")
+    while not wlan.isconnected():
+        time.sleep(0.5)
+
+print("Conectado:", wlan.ifconfig())
+#Cuando se usará la conexión inalámbrica, quitar el comentario de la siguiente linea 
+#webrepl.start() 
