@@ -4,6 +4,7 @@ from tkinter.constants import RIDGE
 from PIL import Image, ImageTk
 
 class PantallaInicial:
+
     def __init__(self, root):
         self.root = root
         self.root.title("Juego de Penales")
@@ -79,16 +80,16 @@ class PantallaInicial:
     def mostrar_estadisticas(self):
         """Muestra la ventana de Estadísticas"""
         try:
-            from pantalla_estadisticas import mostrar_ventana_estadisticas
-            mostrar_ventana_estadisticas(self.root)
+            from pantalla_estadisticas import PantallaEstadisticas
+            PantallaEstadisticas(self.root)
         except ImportError as e:
             messagebox.showerror("Error", f"No se pudo cargar el módulo Estadísticas: {e}")
 
     def mostrar_acerca_de(self):
         """Muestra la ventana Acerca De"""
         try:
-            from pantalla_about import mostrar_ventana_acerca_de
-            mostrar_ventana_acerca_de(self.root)
+            from pantalla_about import VentanaAcercaDe
+            VentanaAcercaDe(self.root)
         except ImportError as e:
             messagebox.showerror("Error", f"No se pudo cargar el módulo Acerca De: {e}")
 
