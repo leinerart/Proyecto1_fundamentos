@@ -1,19 +1,17 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter.constants import RIDGE
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
 
 
 class VentanaAcercaDe:
     def __init__(self, root_padre):
-        # Destruir el menú principal si existe
         if root_padre:
             root_padre.destroy()
 
-        # Crear nueva ventana principal para About
         self.root = tk.Tk()
         self.root.title("About")
-        self.root.geometry("1300x600")
+        self.root.geometry("1300x700")
 
         self.cargar_imagenes()
         self.mostrar_pantalla_about()
@@ -21,45 +19,107 @@ class VentanaAcercaDe:
 
     def cargar_imagenes(self):
         """Carga las imágenes necesarias para la interfaz"""
+        # Fondo
         try:
             img_fondo = Image.open("fondoba.jpg")
-            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudieron cargar imágenes: {e}")
-            self.root.destroy()
+        except:
+            img_fondo = Image.new("RGB", (1536, 792), color=(200, 200, 255))
+        self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+
+        # Foto 1
+        try:
+            foto1 = Image.open("Joel.png").resize((160, 160))
+        except:
+            foto1 = Image.new("RGB", (160, 160), color=(255, 220, 220))
+            draw = ImageDraw.Draw(foto1)
+            draw.text((40, 70), "Foto 1", fill="black")
+        self.foto1 = ImageTk.PhotoImage(foto1)
+
+        # Foto 2
+        try:
+            foto2 = Image.open("Leiner.jpg").resize((160, 160))
+        except:
+            foto2 = Image.new("RGB", (160, 160), color=(220, 255, 220))
+            draw = ImageDraw.Draw(foto2)
+            draw.text((40, 70), "Foto 2", fill="black")
+        self.foto2 = ImageTk.PhotoImage(foto2)
 
     def limpiar_pantalla(self):
-        """Limpia todos los widgets de la pantalla"""
         for widget in self.root.winfo_children():
             widget.destroy()
 
     def mostrar_pantalla_about(self):
-        """Muestra la pantalla de about"""
         self.limpiar_pantalla()
 
+        # Fondo
         tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
 
         # Título
-        tk.Label(self.root, text="About", font=("Fixedsys", 35), relief="ridge", bd=20,
-                 bg="white").pack(pady=50)
+        tk.Label(self.root, text="About", font=("Fixedsys", 35),
+                 relief="ridge", bd=20, bg="white").pack(pady=30)
 
-        # Frame principal para el contenido
-        contenido_frame = tk.Frame(self.root, bg="blue", bd=10, relief=RIDGE)
-        contenido_frame.place(x=200, y=150, width=900, height=400)
+        # Frame principal
+        frame = tk.Frame(self.root, bg="#A9D0F5", bd=10, relief=RIDGE)
+        frame.pack(pady=10, padx=30, fill="both", expand=True)
 
-        # Botón para regresar al menú principal
+        # --- Sección superior: fotos, nombres y carnets ---
+        top_frame = tk.Frame(frame, bg="#A9D0F5")
+        top_frame.pack(pady=15)
+
+        # Columna 1 (persona 1)
+        col1 = tk.Frame(top_frame, bg="#A9D0F5")
+        col1.grid(row=0, column=0, padx=100)
+        tk.Label(col1, image=self.foto1, relief="ridge", bd=5).pack()
+        tk.Label(col1, text="Jarot Picado Gómez", font=("Fixedsys", 14),
+                 bg="#A9D0F5").pack(pady=(5, 0))
+        tk.Label(col1, text="(2024109895)", font=("Fixedsys", 12),
+                 bg="#A9D0F5").pack()
+
+        # Columna 2 (persona 2)
+        col2 = tk.Frame(top_frame, bg="#A9D0F5")
+        col2.grid(row=0, column=1, padx=100)
+        tk.Label(col2, image=self.foto2, relief="ridge", bd=5).pack()
+        tk.Label(col2, text="(Leiner Artavia Arias)", font=("Fixedsys", 14),
+                 bg="#A9D0F5").pack(pady=(5, 0))
+        tk.Label(col2, text="(2024216026)", font=("Fixedsys", 12),
+                 bg="#A9D0F5").pack()
+
+        # --- Línea divisoria ---
+        tk.Frame(frame, bg="black", height=2).pack(fill="x", pady=10)
+
+        # --- Información general ---
+        info_texto = (
+            "Asignatura: Fundamentos de Sistemas Computacionales\n"
+            "Carrera: Ingeniería en Computadores (CE)\n"
+            "Año: 2025\n"
+            "Profesor: Luis Alonso Barboza Artavia\n"
+            "País de Producción: Costa Rica\n"
+            "Versión del programa: 3.0\n\n"
+            "Información de ayuda:\n"
+            "Gire la perilla para la selección de Equipos y Personajes.\n"
+            "Espere a la selección de quien empezará a jugar primero, luego posicione la bola\n"
+            "en dirección hacia una de las paletas que desea activar y suelte la bola.\n"
+            "Espere a ver el resultado:\n"
+            "   • Todas las leds encendidas = Gol" "   • Leds laterales encendidas = Bola detenida por el portero" "   • Ninguna Led encendida = Se le terminó el tiempo para lanzar"
+        )
+
+        tk.Label(frame, text=info_texto, font=("Fixedsys", 14),
+                 bg="#A9D0F5", justify="left", anchor="w").pack(padx=40, pady=10, fill="x")
+
+        # --- Botón regresar ---
         tk.Button(self.root, text="Regresar al Menú",
                   font=("Fixedsys", 15), relief="ridge", bd=10,
-                  command=self.volver_menu,
-                  width=16).place(x=0,y=0)
+                  command=self.volver_menu, width=16).place(x=20, y=20)
 
     def volver_menu(self):
-        """Vuelve al menú principal"""
-        from pantalla_inicio import PantallaInicial
-        self.root.destroy()
-        nueva_raiz = tk.Tk()
-        PantallaInicial(nueva_raiz)
-        nueva_raiz.mainloop()
+        try:
+            from pantalla_inicio import PantallaInicial
+            self.root.destroy()
+            nueva_raiz = tk.Tk()
+            PantallaInicial(nueva_raiz)
+            nueva_raiz.mainloop()
+        except ImportError:
+            messagebox.showinfo("Menú principal", "Función volver al menú no disponible.")
 
 
 if __name__ == "__main__":
