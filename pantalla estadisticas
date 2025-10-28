@@ -1,23 +1,267 @@
 import tkinter as tk
+from tkinter import messagebox
+from tkinter.constants import RIDGE
+from PIL import Image, ImageTk
 
-class VentanaEstadisticas:
+
+class PantallaEstadisticas:
     def __init__(self, root_padre):
-        # Destruir el menú principal
-        root_padre.destroy()
+        # Destruir el menú principal si existe
+        if root_padre:
+            root_padre.destroy()
 
         # Crear nueva ventana principal para Estadísticas
         self.root = tk.Tk()
         self.root.title("Estadísticas")
-        self.root.geometry("400x300")
-        self.root.configure(bg='white')
+        self.root.geometry("1450x730")
+
+        self.cargar_imagenes()
+        self.mostrar_pantalla_estadisticas()
+        self.root.mainloop()
+
+    def cargar_imagenes(self):
+        """Carga las imágenes necesarias para la interfaz"""
+        try:
+            # Fondo
+            img_fondo = Image.open("fondoba.jpg")
+            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+
+            # Cargar imágenes de equipos y artilleros
+            self.cargar_imagenes_equipos_artilleros()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar imágenes: {e}")
+            self.root.destroy()
+
+    def cargar_imagenes_equipos_artilleros(self):
+        """Carga todas las imágenes de equipos y artilleros"""
+        try:
+            # Escudos de equipos
+            escudo1 = Image.open("escudo_argentina.png")
+            escudo1 = escudo1.resize((200, 200), Image.LANCZOS)
+            self.escudo1 = ImageTk.PhotoImage(escudo1)
+
+            escudo2 = Image.open("escudo_portugal.webp")
+            escudo2 = escudo2.resize((200, 200), Image.LANCZOS)
+            self.escudo2 = ImageTk.PhotoImage(escudo2)
+
+            escudo3 = Image.open("escudo_francia.webp")
+            escudo3 = escudo3.resize((200, 200), Image.LANCZOS)
+            self.escudo3 = ImageTk.PhotoImage(escudo3)
+
+            # Artilleros Argentina
+            artillero1arg = Image.open("messi.jpg")
+            artillero1arg = artillero1arg.resize((180, 180), Image.LANCZOS)
+            self.artillero1arg = ImageTk.PhotoImage(artillero1arg)
+
+            artillero2arg = Image.open("lautaro.webp")
+            artillero2arg = artillero2arg.resize((180, 180), Image.LANCZOS)
+            self.artillero2arg = ImageTk.PhotoImage(artillero2arg)
+
+            artillero3arg = Image.open("nicolas.webp")
+            artillero3arg = artillero3arg.resize((180, 180), Image.LANCZOS)
+            self.artillero3arg = ImageTk.PhotoImage(artillero3arg)
+
+            # Artilleros Portugal
+            artillero1port = Image.open("cristiano.webp")
+            artillero1port = artillero1port.resize((180, 180), Image.LANCZOS)
+            self.artillero1port = ImageTk.PhotoImage(artillero1port)
+
+            artillero2port = Image.open("andre.webp")
+            artillero2port = artillero2port.resize((180, 180), Image.LANCZOS)
+            self.artillero2port = ImageTk.PhotoImage(artillero2port)
+
+            artillero3port = Image.open("renato.webp")
+            artillero3port = artillero3port.resize((180, 180), Image.LANCZOS)
+            self.artillero3port = ImageTk.PhotoImage(artillero3port)
+
+            # Artilleros Francia
+            artillero1fran = Image.open("antoine.webp")
+            artillero1fran = artillero1fran.resize((180, 180), Image.LANCZOS)
+            self.artillero1fran = ImageTk.PhotoImage(artillero1fran)
+
+            artillero2fran = Image.open("mbappe.webp")
+            artillero2fran = artillero2fran.resize((180, 180), Image.LANCZOS)
+            self.artillero2fran = ImageTk.PhotoImage(artillero2fran)
+
+            artillero3fran = Image.open("karim.webp")
+            artillero3fran = artillero3fran.resize((180, 180), Image.LANCZOS)
+            self.artillero3fran = ImageTk.PhotoImage(artillero3fran)
+
+            # Diccionarios organizados
+            self.imagenes_equipos = {
+                0: self.escudo1,  # Argentina
+                1: self.escudo2,  # Portugal
+                2: self.escudo3  # Francia
+            }
+
+            self.imagenes_artilleros = {
+                0: [self.artillero1arg, self.artillero2arg, self.artillero3arg],  # Argentina
+                1: [self.artillero1port, self.artillero2port, self.artillero3port],  # Portugal
+                2: [self.artillero1fran, self.artillero2fran, self.artillero3fran]  # Francia
+            }
+
+        except Exception as e:
+            print(f"Error cargando imágenes de equipos: {e}")
+
+    def limpiar_pantalla(self):
+        """Limpia todos los widgets de la pantalla"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    def mostrar_pantalla_estadisticas(self):
+        """Muestra la pantalla de estadísticas"""
+        self.limpiar_pantalla()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título
+        tk.Label(self.root, text="Estadísticas del Juego", font=("Fixedsys", 35), relief="ridge", bd=20,
+                 bg="white").pack(pady=50)
 
         # Botón para regresar al menú principal
         tk.Button(self.root, text="Regresar al Menú",
-                  font=("Fixedsys", 14),
+                  font=("Fixedsys", 15), relief="ridge", bd=10,
                   command=self.volver_menu,
-                  width=18).pack(pady=20)
+                  width=16).place(x=20, y=20)
 
-        self.root.mainloop()
+        # Frame principal para el contenido
+        contenido_frame = tk.Frame(self.root, bg="lightblue", bd=10, relief=RIDGE)
+        contenido_frame.place(x=10, y=160, width=1430, height=550)
+
+        # ========== SECCIÓN EQUIPOS ==========
+        # Título sección equipos
+        tk.Label(contenido_frame, text="ESTADÍSTICAS POR EQUIPO",
+                 font=("Fixedsys", 20, "bold"), bg="lightblue", fg="darkblue").place(x=50, y=10)
+
+        # Frame para Argentina
+        frame_argentina = tk.Frame(contenido_frame, bg="lightblue", bd=5, relief="groove")
+        frame_argentina.place(x=50, y=50, width=400, height=200)
+
+        # Imagen y estadísticas Argentina
+        self.label_equipo_arg = tk.Label(frame_argentina, image=self.escudo1, bd=8, relief="ridge", bg="white")
+        self.label_equipo_arg.place(x=10, y=10, width=120, height=120)
+
+        # Labels de estadísticas para Argentina
+        tk.Label(frame_argentina, text="ARGENTINA", font=("Fixedsys", 14, "bold"),
+                 bg="lightblue", fg="darkblue").place(x=140, y=10)
+
+        self.label_goles_arg = tk.Label(frame_argentina, text="Goles totales: 0", font=("Arial", 12),
+                                        bg="#8ffb88", relief="groove", bd=3)
+        self.label_goles_arg.place(x=140, y=40, width=200, height=25)
+
+        self.label_fallados_arg = tk.Label(frame_argentina, text="Tiros fallados: 0", font=("Arial", 12),
+                                           bg="orange", relief="groove", bd=3)
+        self.label_fallados_arg.place(x=140, y=70, width=200, height=25)
+
+        self.label_perdidos_arg = tk.Label(frame_argentina, text="Tiros perdidos: 0", font=("Arial", 12),
+                                           bg="red", relief="groove", bd=3)
+        self.label_perdidos_arg.place(x=140, y=100, width=200, height=25)
+
+        self.label_cobros_arg = tk.Label(frame_argentina, text="Total cobros: 0", font=("Arial", 12),
+                                         bg="yellow", relief="groove", bd=3)
+        self.label_cobros_arg.place(x=140, y=130, width=200, height=25)
+
+        # Frame para Portugal
+        frame_portugal = tk.Frame(contenido_frame, bg="lightblue", bd=5, relief="groove")
+        frame_portugal.place(x=500, y=50, width=400, height=200)
+
+        # Imagen y estadísticas Portugal
+        self.label_equipo_por = tk.Label(frame_portugal, image=self.escudo2, bd=8, relief="ridge", bg="white")
+        self.label_equipo_por.place(x=10, y=10, width=120, height=120)
+
+        tk.Label(frame_portugal, text="PORTUGAL", font=("Fixedsys", 14, "bold"),
+                 bg="lightblue", fg="darkred").place(x=140, y=10)
+
+        self.label_goles_por = tk.Label(frame_portugal, text="Goles totales: 0", font=("Arial", 12),
+                                        bg="#8ffb88", relief="groove", bd=3)
+        self.label_goles_por.place(x=140, y=40, width=200, height=25)
+
+        self.label_fallados_por = tk.Label(frame_portugal, text="Tiros fallados: 0", font=("Arial", 12),
+                                           bg="orange", relief="groove", bd=3)
+        self.label_fallados_por.place(x=140, y=70, width=200, height=25)
+
+        self.label_perdidos_por = tk.Label(frame_portugal, text="Tiros perdidos: 0", font=("Arial", 12),
+                                           bg="red", relief="groove", bd=3)
+        self.label_perdidos_por.place(x=140, y=100, width=200, height=25)
+
+        self.label_cobros_por = tk.Label(frame_portugal, text="Total cobros: 0", font=("Arial", 12),
+                                         bg="yellow", relief="groove", bd=3)
+        self.label_cobros_por.place(x=140, y=130, width=200, height=25)
+
+        # Frame para Francia
+        frame_francia = tk.Frame(contenido_frame, bg="lightblue", bd=5, relief="groove")
+        frame_francia.place(x=950, y=50, width=400, height=200)
+
+        # Imagen y estadísticas Francia
+        self.label_equipo_fra = tk.Label(frame_francia, image=self.escudo3, bd=8, relief="ridge", bg="white")
+        self.label_equipo_fra.place(x=10, y=10, width=120, height=120)
+
+        tk.Label(frame_francia, text="FRANCIA", font=("Fixedsys", 14, "bold"),
+                 bg="lightblue", fg="darkblue").place(x=140, y=10)
+
+        self.label_goles_fra = tk.Label(frame_francia, text="Goles totales: 0", font=("Arial", 12),
+                                        bg="#8ffb88", relief="groove", bd=3)
+        self.label_goles_fra.place(x=140, y=40, width=200, height=25)
+
+        self.label_fallados_fra = tk.Label(frame_francia, text="Tiros fallados: 0", font=("Arial", 12),
+                                           bg="orange", relief="groove", bd=3)
+        self.label_fallados_fra.place(x=140, y=70, width=200, height=25)
+
+        self.label_perdidos_fra = tk.Label(frame_francia, text="Tiros perdidos: 0", font=("Arial", 12),
+                                           bg="red", relief="groove", bd=3)
+        self.label_perdidos_fra.place(x=140, y=100, width=200, height=25)
+
+        self.label_cobros_fra = tk.Label(frame_francia, text="Total cobros: 0", font=("Arial", 12),
+                                         bg="yellow", relief="groove", bd=3)
+        self.label_cobros_fra.place(x=140, y=130, width=200, height=25)
+
+        # ========== SECCIÓN MEJORES ARTILLEROS ==========
+        # Título sección artilleros
+        tk.Label(contenido_frame, text="MEJORES ARTILLEROS",
+                 font=("Fixedsys", 20, "bold"), bg="lightblue", fg="darkgreen").place(x=50, y=270)
+
+        # Frame para 1er lugar
+        frame_primer = tk.Frame(contenido_frame, bg="gold", bd=8, relief="ridge")
+        frame_primer.place(x=50, y=320, width=400, height=180)
+
+        tk.Label(frame_primer, text="1ER LUGAR", font=("Fixedsys", 16, "bold"),
+                 bg="gold", fg="black").pack(pady=5)
+
+        self.label_artillero1 = tk.Label(frame_primer, image=self.artillero1arg, bd=5, relief="solid", bg="white")
+        self.label_artillero1.place(x=20, y=40, width=120, height=120)
+
+        self.label_info_artillero1 = tk.Label(frame_primer, text="Artillero #1\nGoles: 0",
+                                              font=("Arial", 12), bg="gold", justify="left")
+        self.label_info_artillero1.place(x=160, y=40, width=200, height=80)
+
+        # Frame para 2do lugar
+        frame_segundo = tk.Frame(contenido_frame, bg="silver", bd=8, relief="ridge")
+        frame_segundo.place(x=500, y=320, width=400, height=180)
+
+        tk.Label(frame_segundo, text="2DO LUGAR", font=("Fixedsys", 16, "bold"),
+                 bg="silver", fg="black").pack(pady=5)
+
+        self.label_artillero2 = tk.Label(frame_segundo, image=self.artillero1port, bd=5, relief="solid", bg="white")
+        self.label_artillero2.place(x=20, y=40, width=120, height=120)
+
+        self.label_info_artillero2 = tk.Label(frame_segundo, text="Artillero #2\nGoles: 0",
+                                              font=("Arial", 12), bg="silver", justify="left")
+        self.label_info_artillero2.place(x=160, y=40, width=200, height=80)
+
+        # Frame para 3er lugar
+        frame_tercero = tk.Frame(contenido_frame, bg="#cd7f32", bd=8, relief="ridge")  # Bronce
+        frame_tercero.place(x=950, y=320, width=400, height=180)
+
+        tk.Label(frame_tercero, text="3ER LUGAR", font=("Fixedsys", 16, "bold"),
+                 bg="#cd7f32", fg="black").pack(pady=5)
+
+        self.label_artillero3 = tk.Label(frame_tercero, image=self.artillero1fran, bd=5, relief="solid", bg="white")
+        self.label_artillero3.place(x=20, y=40, width=120, height=120)
+
+        self.label_info_artillero3 = tk.Label(frame_tercero, text="Artillero #3\nGoles: 0",
+                                              font=("Arial", 12), bg="#cd7f32", justify="left")
+        self.label_info_artillero3.place(x=160, y=40, width=200, height=80)
 
     def volver_menu(self):
         """Vuelve al menú principal"""
@@ -27,5 +271,6 @@ class VentanaEstadisticas:
         PantallaInicial(nueva_raiz)
         nueva_raiz.mainloop()
 
-def mostrar_ventana_estadisticas(root_padre):
-    VentanaEstadisticas(root_padre)
+
+if __name__ == "__main__":
+    PantallaEstadisticas(None)
