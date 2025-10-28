@@ -1,0 +1,501 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter.constants import RIDGE
+from PIL import Image, ImageTk
+import pygame
+import socket
+import threading #para ejecutar tareas en paralelo
+import time
+import random
+
+#clase principal del juego
+class PantallaJuego:
+    def __init__(self, root, selecciones, primer_jugador):
+        self.root = root
+        self.root.title("Penales")
+        self.root.geometry("1450x730")
+
+        # Inicializar pygame mixer para sonidos
+        pygame.mixer.init()
+
+        # Guardar las selecciones y quién empieza primero
+        self.selecciones = selecciones
+        self.primer_jugador = primer_jugador
+
+        # Variables del juego
+        self.tiros_totales = 10  # 5 por equipo
+        self.tiros_realizados = 0
+        self.turno_actual = primer_jugador  # 1 o 2
+        self.en_juego = False
+        self.esperando_tiro = False
+
+        # diccionario que guarda las estadísticas
+        self.estadisticas = {
+            1: {'goles': 0, 'fallados': 0, 'perdidos': 0, 'cobros': 0},
+            2: {'goles': 0, 'fallados': 0, 'perdidos': 0, 'cobros': 0}
+        }
+
+        # Conexión socket
+        self.SERVER_IP = "192.168.97.248"
+        self.PORT = 1717
+        self.connection_active = False
+        self.client_socket = None
+
+        print("Selecciones recibidas:", selecciones)
+        print("Primer jugador:", primer_jugador)
+
+        self.cargar_imagenes()
+        self.mostrar_pantalla_juego() #construye la pantalla junto con los labels
+        self.conectar_servidor()
+        self.iniciar_juego()
+
+    def cargar_sonidos(self):
+        """Carga todos los sonidos del juego"""
+        try:
+            self.sonido_largo = pygame.mixer.Sound("sonido_largo.mp3")
+            self.sonido_corto = pygame.mixer.Sound("sonido_corto.mp3")
+            self.sonido_porras = pygame.mixer.Sound("porras.mp3")
+            self.sonido_abucheos = pygame.mixer.Sound("abucheos.mp3")
+        except Exception as e:
+            print(f"Error cargando sonidos: {e}")
+
+#PARTE LÓGICA DE LA CONEXION A LA RASPBERRY Y LAS PALETAS
+
+    #crea el servidor para conectarse a la raspberry por el puerto 1717
+    def conectar_servidor(self):
+        """Conectar al servidor de las paletas"""
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.SERVER_IP, self.PORT))
+            self.connection_active = True
+
+            # Iniciar hilo para recibir mensajes
+            threading.Thread(target=self.recibir_mensajes, daemon=True).start()
+            print("Conectado al servidor de paletas")
+
+        except Exception as e:
+            print(f"Error conectando al servidor: {e}")
+            self.connection_active = False
+
+    def recibir_mensajes(self):
+        """Recibir mensajes del servidor en un hilo separado"""
+        while self.connection_active:
+            try:
+                data = self.client_socket.recv(1024).decode()
+                if data:
+                    self.procesar_mensaje_paletas(data)
+            except Exception as e:
+                if self.connection_active:
+                    print(f"Error en conexión: {e}")
+                break
+
+    def procesar_mensaje_paletas(self, mensaje):
+        """Procesar los resultados de los tiros"""
+        if mensaje.startswith("TIRO_RESULTADO:"):
+            resultado = mensaje.split(":")[1]
+            print(f"Resultado del tiro: {resultado}")
+
+            # Procesar en el hilo principal de Tkinter
+            self.root.after(0, self.procesar_resultado_tiro, resultado)
+
+    def iniciar_juego(self):
+        """Inicia la secuencia del juego"""
+        self.cargar_sonidos()
+        self.en_juego = True
+
+        # Sonido largo de inicio
+        self.sonido_largo.play()
+        self.root.after(3000, self.iniciar_primer_tiro)  # Esperar 3 segundos
+
+    def iniciar_primer_tiro(self):
+        """Inicia el primer tiro del juego"""
+        self.sonido_corto.play()  # Silbato corto para iniciar cobros
+        self.root.after(100, self.iniciar_turno)
+
+    def iniciar_turno(self):
+        """Inicia un nuevo turno de tiro"""
+        if self.tiros_realizados >= self.tiros_totales:
+            self.finalizar_juego()
+            return
+
+        self.esperando_tiro = True
+        self.actualizar_indicadores_turno() #llama a la funcion que le cambia el color a los bordes
+
+        # Elegir algoritmo ALEATORIO para este cobro (AN1, AN2 o AN3)
+        algoritmo = random.randint(1, 3)
+
+        # Enviar comando a Raspberry con el algoritmo aleatorio
+        if self.connection_active:
+            try:
+                comando = f"INICIO_TIRO:{algoritmo}:{self.turno_actual}"
+                self.client_socket.send(comando.encode())
+                print(f"Enviado {comando} - Equipo {self.turno_actual} juega (AN{algoritmo})")
+            except Exception as e:
+                print(f"Error enviando INICIO_TIRO: {e}")
+
+        # Temporizador de 10 segundos para el tiro
+        self.timer_tiro = self.root.after(10000, self.tiempo_agotado)
+
+    def tiempo_agotado(self):
+        """Se agotó el tiempo para el tiro"""
+        if self.esperando_tiro:
+            print("Tiempo agotado - tiro perdido")
+            self.procesar_resultado_tiro("fallado")
+
+    #se encarga de analizar el tiro
+    def procesar_resultado_tiro(self, resultado):
+        """Procesa el resultado de un tiro"""
+        if not self.esperando_tiro:
+            return
+
+        # Cancelar timer si aún está activo
+        if hasattr(self, 'timer_tiro'):
+            self.root.after_cancel(self.timer_tiro)
+
+        self.esperando_tiro = False
+        jugador = self.turno_actual
+
+        # Actualizar el diccionario estadísticas
+        self.estadisticas[jugador]['cobros'] += 1
+        self.tiros_realizados += 1
+
+        if resultado == "gol":
+            self.estadisticas[jugador]['goles'] += 1
+            self.sonido_porras.play()
+            print("GOL")
+        elif resultado == "atajado":
+            self.estadisticas[jugador]['fallados'] += 1
+            self.sonido_abucheos.play()
+            print("ATAJADO")
+        else:  # fallado
+            self.estadisticas[jugador]['perdidos'] += 1
+            self.sonido_abucheos.play()
+            print("TIRO FALLADO")
+
+        # Actualizar interfaz
+        self.actualizar_estadisticas()#llama a la función actualizar estadísticas
+
+        # Esperar 5 segundos antes del siguiente turno
+        self.root.after(5000, self.siguiente_turno)
+
+    def siguiente_turno(self):
+        """Pasa al siguiente turno"""
+        # Cambiar turno (alternar entre 1 y 2)
+        self.turno_actual = 2 if self.turno_actual == 1 else 1
+
+        # Silbato corto para nuevo turno y luego iniciar tiro
+        self.sonido_corto.play()
+        self.root.after(100, self.iniciar_turno)  # Pequeño delay después del sonido
+
+    def finalizar_juego(self):
+        """Finaliza el juego"""
+        self.en_juego = False
+        self.connection_active = False
+
+        # Enviar comando para apagar leds de equipo
+        if self.client_socket:
+            try:
+                self.client_socket.send("FIN_JUEGO".encode())
+            except:
+                pass
+
+        # Sonido largo de finalización
+        self.sonido_largo.play()
+
+        # Mostrar resultado final
+        goles_jugador1 = self.estadisticas[1]['goles']
+        goles_jugador2 = self.estadisticas[2]['goles']
+
+        if goles_jugador1 > goles_jugador2:
+            mensaje = "¡JUGADOR 1 GANA!"
+        elif goles_jugador2 > goles_jugador1:
+            mensaje = "¡JUGADOR 2 GANA!"
+        else:
+            mensaje = "¡EMPATE!"
+
+        messagebox.showinfo("FIN DEL JUEGO",
+                            f"{mensaje}\n\n"
+                            f"Jugador 1: {goles_jugador1} goles\n"
+                            f"Jugador 2: {goles_jugador2} goles")
+
+        # Cerrar conexión
+        if self.client_socket:
+            try:
+                self.client_socket.send("EXIT".encode())
+                self.client_socket.close()
+            except:
+                pass
+
+    def actualizar_indicadores_turno(self):
+        """Actualiza los colores de los bordes para indicar quién juega"""
+        # Resetear todos los bordes
+        self.label_artilleroiz.config(bg="gray")
+        self.label_porteroiz.config(bg="gray")
+        self.label_artilleroder.config(bg="gray")
+        self.label_porteroder.config(bg="gray")
+
+        # Resaltar jugadores activos, verde para el artillero y amarillo para el portero
+        if self.turno_actual == 1:
+            self.label_artilleroiz.config(bg="green")  # Artillero jugando
+            self.label_porteroder.config(bg="yellow")  # Portero rival
+        else:
+            self.label_artilleroder.config(bg="green")  # Artillero jugando
+            self.label_porteroiz.config(bg="yellow")  # Portero rival
+
+    #modifica los labels de la información para actualizarlos
+    def actualizar_estadisticas(self):
+        """Actualiza las estadísticas en la interfaz"""
+        # Jugador 1
+        self.label_golesiz.config(text=f"Goles: {self.estadisticas[1]['goles']}")
+        self.label_falladosiz.config(text=f"Fallados: {self.estadisticas[1]['fallados']}")
+        self.label_perdidosiz.config(text=f"Perdidos: {self.estadisticas[1]['perdidos']}")
+        self.label_cobrosiz.config(text=f"Cobros: {self.estadisticas[1]['cobros']}")
+
+        # Jugador 2
+        self.label_golesder.config(text=f"Goles: {self.estadisticas[2]['goles']}")
+        self.label_falladosder.config(text=f"Fallados: {self.estadisticas[2]['fallados']}")
+        self.label_perdidosder.config(text=f"Perdidos: {self.estadisticas[2]['perdidos']}")
+        self.label_cobrosder.config(text=f"Cobros: {self.estadisticas[2]['cobros']}")
+
+    def cargar_imagenes(self):
+        """Carga todas las imágenes necesarias"""
+        try:
+            # Fondo
+            img_fondo = Image.open("campo.jpg")
+            self.fondo = ImageTk.PhotoImage(img_fondo.resize((1536, 792)))
+
+            # Cargar todas las imágenes de equipos, artilleros y porteros
+            self.cargar_imagenes_equipos()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudieron cargar imágenes: {e}")
+            self.root.destroy()
+
+    #Acá se cargan todas las imágenes de los equipos con el objetivo de mostrar las elecciones
+    def cargar_imagenes_equipos(self):
+        """Carga todas las imágenes de equipos, artilleros y porteros"""
+        try:
+            # Escudos de equipos
+            escudo1 = Image.open("escudo_argentina.png")
+            escudo1 = escudo1.resize((225, 225), Image.LANCZOS)
+            self.escudo1 = ImageTk.PhotoImage(escudo1)
+
+            escudo2 = Image.open("escudo_portugal.webp")
+            escudo2 = escudo2.resize((225, 225), Image.LANCZOS)
+            self.escudo2 = ImageTk.PhotoImage(escudo2)
+
+            escudo3 = Image.open("escudo_francia.webp")
+            escudo3 = escudo3.resize((225, 225), Image.LANCZOS)
+            self.escudo3 = ImageTk.PhotoImage(escudo3)
+
+            # Artilleros Argentina
+            artillero1arg = Image.open("messi.jpg")
+            artillero1arg = artillero1arg.resize((225, 225), Image.LANCZOS)
+            self.artillero1arg = ImageTk.PhotoImage(artillero1arg)
+
+            artillero2arg = Image.open("lautaro.webp")
+            artillero2arg = artillero2arg.resize((225, 225), Image.LANCZOS)
+            self.artillero2arg = ImageTk.PhotoImage(artillero2arg)
+
+            artillero3arg = Image.open("nicolas.webp")
+            artillero3arg = artillero3arg.resize((225, 225), Image.LANCZOS)
+            self.artillero3arg = ImageTk.PhotoImage(artillero3arg)
+
+            # Porteros Argentina
+            portero1arg = Image.open("otamendi.webp")
+            portero1arg = portero1arg.resize((225, 225), Image.LANCZOS)
+            self.portero1arg = ImageTk.PhotoImage(portero1arg)
+
+            portero2arg = Image.open("joaquin.webp")
+            portero2arg = portero2arg.resize((225, 225), Image.LANCZOS)
+            self.portero2arg = ImageTk.PhotoImage(portero2arg)
+
+            portero3arg = Image.open("julian.webp")
+            portero3arg = portero3arg.resize((225, 225), Image.LANCZOS)
+            self.portero3arg = ImageTk.PhotoImage(portero3arg)
+
+            # Artilleros Portugal
+            artillero1port = Image.open("cristiano.webp")
+            artillero1port = artillero1port.resize((225, 225), Image.LANCZOS)
+            self.artillero1port = ImageTk.PhotoImage(artillero1port)
+
+            artillero2port = Image.open("andre.webp")
+            artillero2port = artillero2port.resize((225, 225), Image.LANCZOS)
+            self.artillero2port = ImageTk.PhotoImage(artillero2port)
+
+            artillero3port = Image.open("renato.webp")
+            artillero3port = artillero3port.resize((225, 225), Image.LANCZOS)
+            self.artillero3port = ImageTk.PhotoImage(artillero3port)
+
+            # Porteros Portugal
+            portero1port = Image.open("rui.webp")
+            portero1port = portero1port.resize((225, 225), Image.LANCZOS)
+            self.portero1port = ImageTk.PhotoImage(portero1port)
+
+            portero2port = Image.open("jose.webp")
+            portero2port = portero2port.resize((225, 225), Image.LANCZOS)
+            self.portero2port = ImageTk.PhotoImage(portero2port)
+
+            portero3port = Image.open("bernardo.webp")
+            portero3port = portero3port.resize((225, 225), Image.LANCZOS)
+            self.portero3port = ImageTk.PhotoImage(portero3port)
+
+            # Artilleros Francia
+            artillero1fran = Image.open("antoine.webp")
+            artillero1fran = artillero1fran.resize((225, 225), Image.LANCZOS)
+            self.artillero1fran = ImageTk.PhotoImage(artillero1fran)
+
+            artillero2fran = Image.open("mbappe.webp")
+            artillero2fran = artillero2fran.resize((225, 225), Image.LANCZOS)
+            self.artillero2fran = ImageTk.PhotoImage(artillero2fran)
+
+            artillero3fran = Image.open("karim.webp")
+            artillero3fran = artillero3fran.resize((225, 225), Image.LANCZOS)
+            self.artillero3fran = ImageTk.PhotoImage(artillero3fran)
+
+            # Porteros Francia
+            portero1fran = Image.open("mike.webp")
+            portero1fran = portero1fran.resize((225, 225), Image.LANCZOS)
+            self.portero1fran = ImageTk.PhotoImage(portero1fran)
+
+            portero2fran = Image.open("adrien.webp")
+            portero2fran = portero2fran.resize((225, 225), Image.LANCZOS)
+            self.portero2fran = ImageTk.PhotoImage(portero2fran)
+
+            portero3fran = Image.open("christopher.webp")
+            portero3fran = portero3fran.resize((225, 225), Image.LANCZOS)
+            self.portero3fran = ImageTk.PhotoImage(portero3fran)
+
+            # Diccionarios organizados
+            self.imagenes_equipos = {
+                0: self.escudo1,  # Argentina
+                1: self.escudo2,  # Portugal
+                2: self.escudo3  # Francia
+            }
+
+            self.imagenes_artilleros = {
+                0: [self.artillero1arg, self.artillero2arg, self.artillero3arg],  # Argentina
+                1: [self.artillero1port, self.artillero2port, self.artillero3port],  # Portugal
+                2: [self.artillero1fran, self.artillero2fran, self.artillero3fran]  # Francia
+            }
+
+            self.imagenes_porteros = {
+                0: [self.portero1arg, self.portero2arg, self.portero3arg],  # Argentina
+                1: [self.portero1port, self.portero2port, self.portero3port],  # Portugal
+                2: [self.portero1fran, self.portero2fran, self.portero3fran]  # Francia
+            }
+
+        except Exception as e:
+            print(f"Error cargando imágenes de equipos: {e}")
+
+    def limpiar_pantalla(self):
+        """Limpia todos los widgets de la pantalla"""
+        for widget in self.root.winfo_children():
+            widget.destroy()
+
+    #función que se encarga de dibujar la pantalla de juego
+    def mostrar_pantalla_juego(self):
+        """Muestra la pantalla del juego con las selecciones"""
+        self.limpiar_pantalla()
+
+        tk.Label(self.root, image=self.fondo).place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Título del juego
+        tk.Label(self.root, text="Juego de Penales", font=("Fixedsys", 25), relief="ridge", bd=20,
+                 bg="white").pack(pady=50)
+
+        # Frame del equipo izquierdo (Jugador 1)
+        izq_frame = tk.Frame(self.root, bg="blue", bd=10, relief=RIDGE)
+        izq_frame.place(x=10, y=270, width=695, height=325)
+
+        # Labels para imágenes del Jugador 1
+        equipo_jugador1 = self.selecciones['equipo_jugador1']
+        artillero_jugador1 = self.selecciones['artillero_jugador1']
+        portero_jugador1 = self.selecciones['portero_jugador1']
+
+        #labels con instancias para que otros métodos puedan modificarlos
+
+        self.label_equipoiz = tk.Label(izq_frame, image=self.imagenes_equipos[equipo_jugador1],
+                                       bd=12, relief="ridge")
+        self.label_equipoiz.place(x=0, y=0, width=225, height=225)
+
+        self.label_artilleroiz = tk.Label(izq_frame,
+                                          image=self.imagenes_artilleros[equipo_jugador1][artillero_jugador1],
+                                          bd=12, relief="ridge", bg="gray")
+        self.label_artilleroiz.place(x=225, y=0, width=225, height=225)
+
+        self.label_porteroiz = tk.Label(izq_frame,
+                                        image=self.imagenes_porteros[equipo_jugador1][portero_jugador1],
+                                        bd=12, relief="ridge", bg="gray")
+        self.label_porteroiz.place(x=450, y=0, width=225, height=225)
+
+        # Estadísticas Jugador 1
+        self.label_golesiz = tk.Label(izq_frame, text=f"Goles: 0",
+                                      font=("Fixedsys", 17), bg="#8ffb88", fg="black", relief="groove", bd=8)
+        self.label_golesiz.place(x=0, y=245, width=173, height=60)
+
+        self.label_falladosiz = tk.Label(izq_frame, text=f"Fallados: 0",
+                                         font=("Fixedsys", 17), bg="orange", fg="black", relief="groove", bd=8)
+        self.label_falladosiz.place(x=173, y=245, width=173, height=60)
+
+        self.label_perdidosiz = tk.Label(izq_frame, text=f"Perdidos: 0",
+                                         font=("Fixedsys", 17), bg="red", fg="black", relief="groove", bd=8)
+        self.label_perdidosiz.place(x=346, y=245, width=173, height=60)
+
+        self.label_cobrosiz = tk.Label(izq_frame, text=f"Cobros: 0",
+                                       font=("Fixedsys", 17), bg="yellow", fg="black", relief="groove", bd=8)
+        self.label_cobrosiz.place(x=519, y=245, width=156, height=60)
+
+        # Frame del equipo derecho (Jugador 2)
+        der_frame = tk.Frame(self.root, bg="red", bd=10, relief=RIDGE)
+        der_frame.place(x=745, y=270, width=695, height=325)
+
+        # Labels para imágenes del Jugador 2
+        equipo_jugador2 = self.selecciones['equipo_jugador2']
+        artillero_jugador2 = self.selecciones['artillero_jugador2']
+        portero_jugador2 = self.selecciones['portero_jugador2']
+
+        self.label_equipoder = tk.Label(der_frame, image=self.imagenes_equipos[equipo_jugador2],
+                                        bd=12, relief="ridge")
+        self.label_equipoder.place(x=0, y=0, width=225, height=225)
+
+        self.label_artilleroder = tk.Label(der_frame,
+                                           image=self.imagenes_artilleros[equipo_jugador2][artillero_jugador2],
+                                           bd=12, relief="ridge", bg="gray")
+        self.label_artilleroder.place(x=225, y=0, width=225, height=225)
+
+        self.label_porteroder = tk.Label(der_frame,
+                                         image=self.imagenes_porteros[equipo_jugador2][portero_jugador2],
+                                         bd=12, relief="ridge", bg="gray")
+        self.label_porteroder.place(x=450, y=0, width=225, height=225)
+
+        # Estadísticas Jugador 2
+        self.label_golesder = tk.Label(der_frame, text=f"Goles: 0",
+                                       font=("Fixedsys", 17), bg="#8ffb88", fg="black", relief="groove", bd=8)
+        self.label_golesder.place(x=0, y=245, width=173, height=60)
+
+        self.label_falladosder = tk.Label(der_frame, text=f"Fallados: 0",
+                                          font=("Fixedsys", 17), bg="orange", fg="black", relief="groove", bd=8)
+        self.label_falladosder.place(x=173, y=245, width=173, height=60)
+
+        self.label_perdidosder = tk.Label(der_frame, text=f"Perdidos: 0",
+                                          font=("Fixedsys", 17), bg="red", fg="black", relief="groove", bd=8)
+        self.label_perdidosder.place(x=346, y=245, width=173, height=60)
+
+        self.label_cobrosder = tk.Label(der_frame, text=f"Cobros: 0",
+                                        font=("Fixedsys", 17), bg="yellow", fg="black", relief="groove", bd=8)
+        self.label_cobrosder.place(x=519, y=245, width=156, height=60)
+
+if __name__ == "__main__":
+    # Para probar independientemente
+    root = tk.Tk()
+    selecciones_ejemplo = {
+        'equipo_jugador1': 0,  # Argentina
+        'artillero_jugador1': 0,  # Messi
+        'portero_jugador1': 0,  # Otamendi
+        'equipo_jugador2': 1,  # Portugal
+        'artillero_jugador2': 0,  # Cristiano
+        'portero_jugador2': 0  # Rui
+    }
+    app = PantallaJuego(root, selecciones_ejemplo, 1)
+    root.mainloop()
